@@ -1,93 +1,113 @@
-# Physical Climate Risk Propagation Model (MRIO)
+# Physical Climate Risk Propagation Model
 
-This repository contains a **multi-regional input–output (MRIO) physical risk propagation model**
-implemented in Python.
+## Overview
 
-The model simulates the propagation of **simultaneous capacity (supply) shocks** and **final demand shocks**
-through EU-27 country–sector production networks, including a **within-sector trade reallocation mechanism**
-parameterised by \(\gamma\).
+This repository contains a **physical climate risk propagation model** based on **multi-regional input–output (MRIO) analysis**.  
+The model quantifies **direct and indirect economic impacts** of climate-related shocks by propagating **simultaneous supply and demand disruptions** through inter-sectoral and cross-country production networks.
 
-The codebase is structured as a small scientific software package under `src/`, plus:
+The framework is designed to:
+- Capture **business continuity risks** rather than asset losses
+- Account for **supply bottlenecks, inventories, and trade reallocation**
+- Produce impacts on **output, value added**, and other macro-economic indicators
+- Be extensible towards **hazard-based calibration** and **interactive scenario analysis**
 
-- `main.ipynb`: reference notebook for running scenarios and producing diagnostics.
-- `app.py`: optional Streamlit demo application (Databricks Connect required).
+The current implementation uses **EU-27 Social Accounting Matrices (SAMs)** derived from Eurostat data.
 
-## High-level method
+---
 
-At a high level the workflow is:
+## Conceptual Model
 
-1. Load a Eurostat Social Accounting Matrix (SAM) in long format from a Databricks catalog table.
-2. Extract the IO blocks required by the model:
-   - Production-to-production intermediate matrix \(Z\) (only `P_*` accounts).
-   - Final demand vector \(FD\) (accounts `HH`, `GOV`, `CF`, `WRL_REST`).
-   - Gross output \(X\) as \(X = \sum_j Z_{ij} + FD_i\).
-   - Technical coefficients \(A\) from the SAM precomputed `share` column.
-   - A mapping from each node to its global sector (same `P_*` across countries).
-3. Define scenario shocks and run the model.
-4. Aggregate and visualise output impacts (country, sector, and country×sector).
+At a high level, the model operates as follows:
 
-## Model iteration logic (key point)
+1. **Baseline economy**
+   - Production structure is defined by a SAM-derived intermediate input matrix `Z`
+   - Gross output `X`, final demand `FD`, and technical coefficients `A` are computed
 
-The model performs **outer iterations on demand only**.
+2. **Shock definition**
+   - Users specify **supply shocks** (capacity reductions) and **demand shocks**
+   - Shocks can target **different countries and sectors**
+   - Shocks are expressed in percentage terms
 
-- Supply capacity is shocked once: \(X_{cap} = X_0 (1 - sp)\).
-- A baseline Leontief inverse \(L_0\) is used to compute a *demand-driven desired output*:
-  \(X_{dem} = L_0 \, FD_{post}\).
-- A single propagation step constructs a reallocated intermediate matrix \(Z_{new}\).
-- A global feasibility constraint (fixed global technology \(A_G\)) produces a feasible output \(X_s\).
-- An implied final demand \(FD_{impl}\) is computed from accounting:
-  \(FD_{impl} = \max(X_s - \sum_j Z_{new,ij}, 0)\).
-- If \(FD_{impl} < FD_{post}\) for some nodes, demand is reduced **elementwise, monotonically**:
-  \(FD_{post}^{k+1} = \min(FD_{post}^{k}, FD_{impl}^{k})\).
+3. **Propagation & reallocation**
+   - Demand-driven production requirements are compared to post-shock capacity
+   - Bottlenecks emerge when constrained suppliers limit downstream production
+   - Excess demand for inputs is partially reallocated within **global sectors**
+   - Reallocation strength is controlled by parameter `γ ∈ [0,1]`
 
-Convergence is checked on the relative change of \(FD_{post}\).
+4. **Global feasibility & iteration**
+   - Global sectoral technology is assumed fixed (Leontief production)
+   - If post-shock demand cannot be met, aggregate demand is endogenously reduced
+   - The algorithm iterates until **demand consistency** is reached
 
-This design prevents recursive “collapse” dynamics caused by re-feeding the constrained economy
-into subsequent iterations while still capturing the endogenous demand contraction implied by
-binding supply constraints.
+5. **Post-processing**
+   - Output, value added, and structural changes in input linkages are computed
+   - Results are aggregated by country and sector
+   - Diagnostics support scientific validation and scenario comparison
 
-## Repository structure
+---
+
+## Repository Structure
 
 ```
-.
-├─ src/
-│  ├─ data_io/
-│  │  └─ eurostat_sam.py        # load SAM & extract model blocks
-│  └─ io_climate/
-│     ├─ model.py               # IOClimateModel
-│     ├─ propagation.py         # propagate_once (allocation + reallocation)
-│     └─ scenarios.py           # scenario helpers (shock vectors)
-├─ main.ipynb                   # reference notebook for scenarios + diagnostics
-├─ app.py                       # Streamlit demo (optional)
-└─ physical risks through input-output linkages.pdf
+Physical-Climate-Risk/
+│
+├── src/
+│   ├── data_io/
+│   │   ├── eurostat_sam.py        # Load SAM and extract model blocks
+│   │   └── sector_decoder.py     # Decode SAM sector codes to names
+│   │
+│   ├── io_climate/
+│   │   ├── model.py              # IOClimateModel class (main engine)
+│   │   ├── propagation.py        # Single-step propagation & reallocation logic
+│   │   ├── scenarios.py          # User-friendly shock construction
+│   │   └── postprocess.py        # Output, VA, and structural change diagnostics
+│   │
+│   └── __init__.py
+│
+├── notebooks/
+│   └── main.ipynb                # End-to-end execution & visualization
+│
+├── README.md
+└── requirements.txt
 ```
 
-## Quickstart (notebook)
+---
 
-1. Ensure Databricks Connect is configured in your VS Code environment.
-2. Open and run `main.ipynb`.
+## Running the Model
 
-The notebook is organised to:
-
-- Load the latest SAM year.
-- Build \(Z, FD, X, A,\) and labels.
-- Define a scenario (country/sector selection + shock sizes).
-- Run the model and create maps and bar charts for impacts.
-
-## Quickstart (Streamlit app)
-
-If you have Databricks Connect configured:
-
+1. Install dependencies:
 ```bash
-streamlit run app.py
+pip install -r requirements.txt
 ```
 
-## Data assumptions
+2. Open `notebooks/main.ipynb`
+3. Load the SAM and initialize the model
+4. Define a scenario (countries, sectors, shock sizes)
+5. Run the model and inspect results
 
-- The SAM table is expected to contain at least:
-  `c_orig`, `ind_ava`, `c_dest`, `ind_use`, `value`, `share`, `time_period`.
-- The `share` column must represent \(Z_{ij} / X_j\) for production-to-production flows.
+---
 
-## License / internal usage
+## Current Capabilities
 
-This repository is intended for internal analytical use.
+✔ Multi-country, multi-sector propagation  
+✔ Simultaneous supply and demand shocks  
+✔ Bottlenecks and inventory-based reallocation  
+✔ Output and value added impacts  
+✔ Structural change diagnostics  
+✔ Ready for dashboard integration  
+
+---
+
+## Planned Extensions
+
+- Hazard-based calibration (floods, heatwaves, droughts)
+- Employment and income satellite accounts
+- Interactive web application (Streamlit)
+- Stress testing and sensitivity analysis
+
+---
+
+## Disclaimer
+
+This model is a **research and exploratory tool**.  
+Results depend on modeling assumptions and should be interpreted as **scenario-based insights**, not forecasts.
