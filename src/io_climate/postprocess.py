@@ -329,6 +329,9 @@ def top_linkage_changes(
 
     delta = final - base
 
+    # Relative change (informational): delta/base, with 0 where baseline is 0
+    delta_rel = np.divide(delta, base, out=np.zeros_like(delta, dtype=float), where=base != 0.0)
+
     # Optional pruning for Z deltas (ignore tiny baseline flows)
     if metric.upper() == "Z" and min_baseline > 0.0:
         mask = base >= min_baseline
@@ -339,7 +342,7 @@ def top_linkage_changes(
     # Flatten and take top-K negative and positive
     flat = delta.ravel()
     if flat.size == 0:
-        empty = pd.DataFrame(columns=["i_node", "j_node", "i_label", "j_label", "baseline", "final", "delta"])
+        empty = pd.DataFrame(columns=["i_node", "j_node", "i_label", "j_label", "baseline", "final", "delta", "delta_rel"])
         return empty, empty
 
     # strongest strengthened: largest positive deltas
@@ -362,6 +365,7 @@ def top_linkage_changes(
                 "baseline": base[i, j],
                 "final": final[i, j],
                 "delta": delta[i, j],
+                "delta_rel": delta_rel[i, j],
             }
         )
 
