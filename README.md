@@ -15,8 +15,6 @@ While traditional climate risk models focus on property damage, this model focus
 
 - **[Technical Whitepaper](docs/WHITEPAPER.md)**: Full theoretical methodology, mathematical formulation, and calibration logic.
 - **[Data Dictionary](docs/DATA.md)**: Details on the Eurostat SAM schema and account conventions.
-- **[Old README](README_old.md)**: Legacy documentation.
-
 ---
 
 ## 🔗 Model Architecture & Dependencies
