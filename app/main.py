@@ -14,9 +14,11 @@ setup_paths()
 from app.data import load_core_model_data, load_calibration_data
 from src.io_climate.calibration import shock_scalar
 
-# Viz imports
 from io_climate.postprocess import postprocess_results
 from src.io_climate.viz import build_dashboard_bundle
+
+# Branding
+from app.branding import set_streamlit_branding, apply_oe_branding
 
 # --- 2. Page Config ---
 st.set_page_config(
@@ -44,6 +46,7 @@ def format_sector_label(code, decoder):
 
 # --- 4. Main Interface ---
 def main():
+    set_streamlit_branding()
     st.title("🌍 Physical Climate Risk Propagation")
 
     # --- Data Loading ---
@@ -176,6 +179,18 @@ def main():
                 )
 
                 bundle = build_dashboard_bundle(pp)
+
+                # Apply OE Branding with specific color logic
+                for fig_key in bundle.figures:
+                    theme = None
+                    if fig_key in ["top_sectors", "links_weakened", "top_countries"]:
+                        theme = "primary"
+                    elif fig_key == "links_strengthened":
+                        theme = "secondary"
+
+                    bundle.figures[fig_key] = apply_oe_branding(
+                        bundle.figures[fig_key], theme_color=theme
+                    )
 
                 st.session_state["bundle"] = bundle
                 st.session_state["has_run"] = True
