@@ -30,31 +30,32 @@ def apply_oe_branding(fig, theme_color=None):
     fonts = tokens.get("fonts", {})
 
     # 1. Fonts
-    primary_font = fonts.get("primary", "Arial")
-    fallback_font = fonts.get("fallback", "sans-serif")
+    primary_font = fonts.get("primary", "Atkinson Hyperlegible Next")
+    fallback_font = fonts.get("fallback", "Arial")
     font_family = f"'{primary_font}', {fallback_font}"
 
     fig.update_layout(
         font_family=font_family,
         title_font_family=font_family,
         title_font_color=colors.get("primary", "#4400B3"),
-        title_font_size=20,
+        title_font_size=22,
         plot_bgcolor="rgba(0,0,0,0)",
         paper_bgcolor="rgba(0,0,0,0)",
+        legend_font_family=font_family,
+        xaxis_title_font_family=font_family,
+        yaxis_title_font_family=font_family,
     )
 
     # 2. Colors
     categorical = palettes.get("categorical", [])
     sequential = palettes.get("sequential", [])
 
-    # Apply forced theme color if requested
     if theme_color in colors:
         target_color = colors[theme_color]
         fig.update_traces(marker_color=target_color)
-    elif categorical and not hasattr(fig.data[0], "z"):
+    elif categorical and not any(hasattr(data, "z") for data in fig.data):
         fig.update_layout(colorway=categorical)
 
-    # Apply sequential color scale for maps
     if sequential and any(hasattr(data, "z") for data in fig.data):
         fig.update_coloraxes(colorscale=sequential)
         for data in fig.data:
@@ -74,30 +75,41 @@ def set_streamlit_branding():
     primary = colors.get("primary", "#4400B3")
     font = tokens.get("fonts", {}).get("primary", "Atkinson Hyperlegible Next")
 
+    # More aggressive CSS to force font application across Streamlit's shadow DOM and variables
     css = f"""
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:ital,wght@0,200..800;1,200..800&display=swap');
         
-        html, body, [class*="css"] {{
-            font-family: '{font}', sans-serif;
+        /* Apply to the whole app */
+        html, body, [class*="css"], .stMarkdown, .stText, .stButton, .stSelectbox, .stSlider, .stHeader, .stMetric {{
+            font-family: '{font}', 'Arial', sans-serif !important;
         }}
         
+        /* Specifically target Streamlit headers and titles */
+        h1, h2, h3, h4, h5, h6, .st-emotion-cache-10trblm {{
+            font-family: '{font}', 'Arial', sans-serif !important;
+            font-weight: 700 !important;
+        }}
+
+        /* Target Streamlit's internal variable for fonts if possible */
         :root {{
+            --st-font-sans: '{font}', 'Arial', sans-serif;
             --primary-color: {primary};
         }}
         
+        /* Brand Color Button */
         .stButton>button {{
-            background-color: {primary};
-            color: white;
-            border-radius: 8px;
-            border: none;
-            padding: 0.5rem 1rem;
-            font-weight: bold;
+            background-color: {primary} !important;
+            color: white !important;
+            border-radius: 8px !important;
+            font-family: '{font}', sans-serif !important;
         }}
         
-        .stButton>button:hover {{
-            background-color: {primary}dd;
-            color: white;
+        /* Metric Styling */
+        [data-testid="stMetricValue"] {{
+            font-family: '{font}', sans-serif !important;
+            font-weight: 800 !important;
+            color: {primary} !important;
         }}
     </style>
     """
