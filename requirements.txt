@@ -14,4 +14,4 @@ matplotlib>=3.8
 streamlit>=1.31
 
 # Databricks Connect (version must match your Databricks Runtime)
-databricks-connect
+databricks-connect>=16.1
