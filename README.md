@@ -1,118 +1,86 @@
 # Physical Climate Risk Propagation Model
 
-## Overview
-This repository implements a **multi-country, multi-sector Input–Output (IO) model**
-to quantify **direct and indirect economic impacts of physical climate hazards**
-across Europe.
+![Physical Risk](https://img.shields.io/badge/Domain-Physical%20Climate%20Risk-blue)
+![Methodology](https://img.shields.io/badge/Methodology-Adaptive%20Input--Output-orange)
 
-The model combines:
-- Eurostat Supply–Use / Social Accounting Matrix (SAM) data
-- A dynamic IO-based propagation mechanism with bottlenecks and inventories
-- A hazard-calibration module based on **historical economic losses**
-- Scenario tooling and post-processing for economic risk analysis
+## 🎯 Overview
 
-The objective is to assess **business-continuity risk**, not asset damage, by
-measuring how climate shocks propagate through production networks.
+This repository provides a high-performance simulation engine to quantify the **propagation of physical climate shocks** through complex production networks. 
+
+While traditional climate risk models focus on property damage, this model focuses on **Business Continuity Risk**—measuring how a bottleneck in one country or sector (e.g., energy in Germany) cascades into productivity losses across the entire European value chain.
 
 ---
 
-## Model Structure
+## 📖 Documentation
 
-### 1. Core Economic Data
-- **SAM / IO matrix** (Eurostat, EU27, ~63 sectors)
-- Country–sector nodes: `CC::P_SECTOR`
-- Baseline variables:
-  - `Z`: intermediate demand matrix
-  - `X`: gross output
-  - `FD`: final demand
-  - `A`: technical coefficients
-  - `L`: Leontief inverse
-
-### 2. Propagation Algorithm
-At each iteration the model computes:
-1. **Demand-driven output** (`X_dem`)
-2. **Capacity constraints** (`X_cap`)
-3. **Bottlenecks and rationing**
-4. **Constrained flows** (`Z_con`)
-5. **Needed flows** (`Z_need`)
-6. **Inventories and excess demand**
-7. **Within-sector trade reallocation** (γ mechanism)
-8. **Globally feasible output** using fixed global technology
-9. **Implied final demand**
-10. **Iterative demand adjustment until convergence**
-
-Convergence is checked on **final demand consistency**.
+- **[Technical Whitepaper](docs/WHITEPAPER.md)**: Full theoretical methodology, mathematical formulation, and calibration logic.
+- **[Data Dictionary](docs/DATA.md)**: Details on the Eurostat SAM schema and account conventions.
+- **[Old README](README_old.md)**: Legacy documentation.
 
 ---
 
-## Hazard Calibration
+## 🔗 Model Architecture & Dependencies
 
-### Data Sources
-- **EEA economic losses from climate extremes (1980–2024)**
-- Hazards:
-  - Hydrological
-  - Meteorological
-  - Geophysical
-  - Climatological (heatwaves / other)
-- **Eurostat national accounts output (P1)** via API
+```mermaid
+graph TD
+    subgraph Data Ingestion
+        SAM[Eurostat SAM - Databricks] --> SAM_EXT[extract_model_inputs_from_sam]
+        EEA[EEA Economic Losses - Excel] --> CALIB[Calibration Engine]
+        EUR_OUT[Eurostat Output - API] --> CALIB
+    end
 
-### Calibration Logic
-1. Split annual country losses across hazards using historical hazard shares
-2. Convert losses and output to **constant 2024 EUR**
-3. Compute **intensity = losses / output**
-4. Build **percentile-based intensity levels** (moderate, severe, extreme)
-5. Map intensities to **supply capacity shocks**
-6. Demand shocks emerge endogenously from the model
+    subgraph Simulation Core
+        SAM_EXT --> MODEL[IOClimateModel]
+        CALIB --> SHOCK[Shock Scalar & Scenario]
+        SHOCK --> MODEL
+        MODEL --> PROP[Iterative Propagation Loop]
+    end
 
-Fallback logic:
-- Country-specific deflators when CLV exists
-- EU-wide implicit deflator when CLV is missing
-
----
-
-## Repository Structure
-
+    subgraph Analytics & Viz
+        PROP --> POST[Post-processing]
+        POST --> RANK[Country/Sector Rankings]
+        POST --> MAP[Choropleth Maps]
+        POST --> DASH[Dashboard Bundle]
+    end
 ```
+
+---
+
+## 🛠️ Key Features
+
+- **Adaptive IO Mechanism**: Beyond static Leontief models, we implement non-linear rationing and bottleneck detection.
+- **Historical Calibration**: Shocks are calibrated using 40+ years of EEA economic loss data, mapped to hazard-specific intensity percentiles.
+- **Inventory Dynamics**: Models the role of stockpiles in mitigating short-term supply chain disruptions.
+- **Global Reallocation ($\gamma$)**: Simulates market-based substitution within global sectors to absorb localized shocks.
+
+---
+
+## 🏗️ Repository Structure
+
+```bash
 src/
- ├─ data_io/
- │   ├─ eurostat_sam.py
- │   ├─ eurostat_output.py
- │
- ├─ io_climate/
- │   ├─ model.py
- │   ├─ propagation.py
- │
- ├─ scenarios.py
- ├─ calibration.py
- ├─ postprocess.py
- ├─ viz.py
- │
-notebooks/
- ├─ main_refactored_final.ipynb
+ ├─ data_io/       # Eurostat API & SAM ingestion
+ ├─ io_climate/    # Core Simulation & Logic
+ │   ├─ model.py        # Orchestration
+ │   ├─ propagation.py  # Rationing & Reallocation math
+ │   ├─ calibration.py  # EEA Loss -> Shock Mapping
+ │   └─ viz.py          # Post-processing & analytics
 ```
 
 ---
 
-## Outputs
-- Output losses (absolute and %)
-- Value added impacts
-- Country and sector rankings
-- Structural IO changes
-- Hazard-specific scenario impacts
+## 🚀 Quick Start
+
+Refer to `main_refactored_final_with_calibration.ipynb` for the complete end-to-end pipeline:
+
+1. **Environment Setup**: Load the `src` package and locate input assets.
+2. **Load SAM**: Extract the technical coefficients ($A$) and flow matrices ($Z$).
+3. **Calibrate**: Process EEA losses and Eurostat output to build the Intensity Panel.
+4. **Choose Scenario**: Select a (Country, Hazard, Intensity) triplet (e.g., "Severe Flood in Germany").
+5. **Simulate**: Execute the `IOClimateModel` propagation loop.
+6. **Visualize**: Generate dashboard-ready impact tables and maps.
 
 ---
 
-## Intended Use
-- Climate stress testing
-- Business continuity analysis
-- Macroeconomic risk assessment
-
----
-
-## Disclaimer
-Results depend on assumptions regarding:
-- Fixed production technology
-- Uniform sectoral vulnerability
-- Historical-loss-based calibration
-
-They should be interpreted as **risk indicators**, not forecasts.
+## ⚖️ Disclaimer
+This model is a **risk indicator** intended for stress-testing and macroeconomic research. It assumes fixed production technologies and historical-based vulnerabilities.
