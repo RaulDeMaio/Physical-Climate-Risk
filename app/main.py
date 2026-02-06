@@ -1,4 +1,6 @@
 import streamlit as st
+
+# Reload triggered for viz enhancements
 import sys
 import os
 
@@ -47,7 +49,7 @@ def format_sector_label(code, decoder):
 # --- 4. Main Interface ---
 def main():
     set_streamlit_branding()
-    st.title("🌍 Physical Climate Risk Propagation")
+    st.title("🌍 Physical Climate Risk Propagation [v1.1]")
 
     # --- Data Loading ---
     with st.spinner("Initializing Model & Data..."):
