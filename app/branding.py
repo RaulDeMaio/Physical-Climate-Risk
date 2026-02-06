@@ -86,7 +86,9 @@ def apply_oe_branding(fig, theme_color=None):
                     # Check if percentage or absolute
                     is_pct_map = "loss_pct" in (fig.layout.title.text or "").lower()
                     if is_pct_map or (0 < abs(val) < 1.0):
-                        label_text.append(f"{val * 100:.1f}%")
+                        # If value is > 1.0, it's likely already scaled (e.g. 5.1 for 5.1%)
+                        display_val = val if abs(val) > 1.0 else val * 100
+                        label_text.append(f"{display_val:.1f}%")
                     else:
                         label_text.append(f"{val:,.1f}")
 
