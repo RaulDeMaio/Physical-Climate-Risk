@@ -29,6 +29,7 @@ import textwrap
 
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 
 
 # ---------------------------------------------------------------------
@@ -100,6 +101,7 @@ def iso2_to_name(code: str) -> str:
 # Text helpers
 # ---------------------------------------------------------------------
 
+
 def wrap_label(s: str, width: int = 32) -> str:
     """Wrap long labels with <br> for Plotly."""
     s = "" if s is None else str(s)
@@ -109,6 +111,7 @@ def wrap_label(s: str, width: int = 32) -> str:
 # ---------------------------------------------------------------------
 # Plot builders
 # ---------------------------------------------------------------------
+
 
 def plot_country_map(
     df_country: pd.DataFrame,
@@ -149,21 +152,61 @@ def plot_country_map(
     if title is None:
         title = f"Country impact ({metric})"
 
+    hover_data = {
+        "country": True,
+        "iso3": False,
+        "country_name": False,
+    }
+
+    # Add metric with proper formatting
+    if metric == "loss_pct":
+        d["loss_pct_formatted"] = (d[metric] * 100).round(1).astype(str) + "%"
+        hover_data[metric] = ":.2%"
+    else:
+        hover_data[metric] = ":.4f" if d[metric].dtype.kind in "fc" else True
+
     fig = px.choropleth(
         d,
         locations="iso3",
         locationmode="ISO-3",
         color=metric,
         hover_name=hover_name,
-        hover_data={
-            "country": True,
-            "iso3": True,
-            metric: ":.4f" if d[metric].dtype.kind in "fc" else True,
-        },
+        hover_data=hover_data,
         title=title,
     )
 
+    # Phase 2: Static Labels (Scattergeo overlay)
+    # We only label countries that HAVE data in our d dataframe
+    label_df = d.dropna(subset=[metric])
+
+    # Optional: threshold to avoid clutter (only show labels for loss_pct > 0.1% or if absolute loss is large)
+    # For now, we show all impacted countries.
+
+    label_text = (
+        (label_df[metric] * 100).map("{:.1f}%".format)
+        if metric == "loss_pct"
+        else label_df[metric].map("{:,.1f}".format)
+    )
+
+    fig.add_trace(
+        go.Scattergeo(
+            locations=label_df["iso3"],
+            locationmode="ISO-3",
+            text=label_text,
+            mode="text",
+            textfont=dict(color="black", size=12, weight="bold"),
+            showlegend=False,
+            hoverinfo="skip",
+        )
+    )
+
     fig.update_layout(margin=dict(l=20, r=20, t=60, b=20))
+    fig.update_geos(
+        showcountries=True,
+        countrycolor="LightGrey",
+        showland=True,
+        landcolor="white",
+    )
     return fig
 
 
@@ -182,7 +225,9 @@ def plot_top_countries(
         raise ValueError(f"df_country does not contain metric column '{metric}'.")
 
     d = df_country.copy()
-    d["country_label"] = d["country"].map(iso2_to_name) if use_country_names else d["country"]
+    d["country_label"] = (
+        d["country"].map(iso2_to_name) if use_country_names else d["country"]
+    )
     d = d.sort_values(metric, ascending=False).head(int(top_k))
 
     if title is None:
@@ -194,8 +239,18 @@ def plot_top_countries(
         y="country_label",
         orientation="h",
         title=title,
+        text=metric,
     )
-    fig.update_layout(height=max(420, 22 * len(d) + 140), margin=dict(l=180, r=20, t=60, b=20), yaxis_title="")
+    fig.update_traces(
+        textposition="outside",
+        texttemplate="%{text:,.1f}" if d[metric].dtype.kind in "fc" else "%{text}",
+        textfont=dict(weight="bold"),
+    )
+    fig.update_layout(
+        height=max(420, 22 * len(d) + 140),
+        margin=dict(l=180, r=40, t=60, b=20),  # Increased right margin for labels
+        yaxis_title="",
+    )
     return fig
 
 
@@ -212,7 +267,11 @@ def plot_top_sectors(
         raise ValueError(f"df_sector does not contain metric column '{metric}'.")
 
     d = df_sector.copy()
-    label_col = "sector_name" if "sector_name" in d.columns else ("sector" if "sector" in d.columns else None)
+    label_col = (
+        "sector_name"
+        if "sector_name" in d.columns
+        else ("sector" if "sector" in d.columns else None)
+    )
     if label_col is None:
         raise ValueError("df_sector must contain 'sector_name' or 'sector'.")
 
@@ -228,8 +287,18 @@ def plot_top_sectors(
         y="sector_label",
         orientation="h",
         title=title,
+        text=metric,
     )
-    fig.update_layout(height=max(520, 26 * len(d) + 160), margin=dict(l=260, r=20, t=60, b=20), yaxis_title="")
+    fig.update_traces(
+        textposition="outside",
+        texttemplate="%{text:,.1f}" if d[metric].dtype.kind in "fc" else "%{text}",
+        textfont=dict(weight="bold"),
+    )
+    fig.update_layout(
+        height=max(520, 26 * len(d) + 160),
+        margin=dict(l=260, r=40, t=60, b=20),  # Increased right margin for labels
+        yaxis_title="",
+    )
     return fig
 
 
@@ -252,12 +321,15 @@ def plot_linkage_changes(
     -------
     dict with two plotly figures: {'strengthened': fig1, 'weakened': fig2}
     """
+
     def _label_cols(df: pd.DataFrame) -> tuple[str, str]:
         if {"i_label", "j_label"}.issubset(df.columns):
             return "i_label", "j_label"
         if {"origin_node", "dest_node"}.issubset(df.columns):
             return "origin_node", "dest_node"
-        raise ValueError("Linkage df must have ('i_label','j_label') or ('origin_node','dest_node').")
+        raise ValueError(
+            "Linkage df must have ('i_label','j_label') or ('origin_node','dest_node')."
+        )
 
     def _build(df: pd.DataFrame, title: str) -> Any:
         i_col, j_col = _label_cols(df)
@@ -281,8 +353,18 @@ def plot_linkage_changes(
             orientation="h",
             title=title,
             hover_data={"delta_pp": ":.3f", "delta_rel_pct": ":.1f"},
+            text="delta_pp",
         )
-        fig.update_layout(height=max(520, 26 * len(d) + 160), margin=dict(l=320, r=20, t=60, b=20), yaxis_title="")
+        fig.update_traces(
+            textposition="outside",
+            texttemplate="%{text:.3f}",
+            textfont=dict(weight="bold"),
+        )
+        fig.update_layout(
+            height=max(520, 26 * len(d) + 160),
+            margin=dict(l=320, r=40, t=60, b=20),  # Increased right margin for labels
+            yaxis_title="",
+        )
         fig.update_xaxes(title_text="ΔA (percentage points)")
         return fig
 
@@ -296,9 +378,11 @@ def plot_linkage_changes(
 # Bundle builder (dashboard-ready)
 # ---------------------------------------------------------------------
 
+
 @dataclass
 class DashboardBundle:
     """A thin container of tables + figures that can feed notebooks or apps."""
+
     tables: Dict[str, pd.DataFrame]
     figures: Dict[str, Any]
     meta: Dict[str, Any]
@@ -330,21 +414,37 @@ def build_dashboard_bundle(
     }
 
     figures: Dict[str, Any] = {
-        "country_map": plot_country_map(pp.df_country, metric=country_metric_for_map, use_country_names=use_country_names),
-        "top_countries": plot_top_countries(pp.df_country, metric="loss_abs", top_k=top_k_countries, use_country_names=use_country_names),
-        "top_sectors": plot_top_sectors(pp.df_sector, metric="loss_abs", top_k=top_k_sectors),
+        "country_map": plot_country_map(
+            pp.df_country,
+            metric=country_metric_for_map,
+            use_country_names=use_country_names,
+        ),
+        "top_countries": plot_top_countries(
+            pp.df_country,
+            metric="loss_abs",
+            top_k=top_k_countries,
+            use_country_names=use_country_names,
+        ),
+        "top_sectors": plot_top_sectors(
+            pp.df_sector, metric="loss_abs", top_k=top_k_sectors
+        ),
     }
 
-    if getattr(pp, "df_links_strengthened", None) is not None and len(pp.df_links_strengthened) > 0:
+    if (
+        getattr(pp, "df_links_strengthened", None) is not None
+        and len(pp.df_links_strengthened) > 0
+    ):
         link_figs = plot_linkage_changes(
             pp.df_links_strengthened,
             pp.df_links_weakened,
             top_k=top_k_links,
         )
-        figures.update({
-            "links_strengthened": link_figs["strengthened"],
-            "links_weakened": link_figs["weakened"],
-        })
+        figures.update(
+            {
+                "links_strengthened": link_figs["strengthened"],
+                "links_weakened": link_figs["weakened"],
+            }
+        )
 
     meta = dict(getattr(pp, "meta", {}))
     return DashboardBundle(tables=tables, figures=figures, meta=meta)

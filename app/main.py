@@ -1,4 +1,6 @@
 import streamlit as st
+
+# Reload triggered for viz enhancements
 import sys
 import os
 
@@ -47,7 +49,7 @@ def format_sector_label(code, decoder):
 # --- 4. Main Interface ---
 def main():
     set_streamlit_branding()
-    st.title("🌍 Physical Climate Risk Propagation")
+    st.title("🌍 Physical Climate Risk Propagation [v1.4]")
 
     # --- Data Loading ---
     with st.spinner("Initializing Model & Data..."):
@@ -214,7 +216,8 @@ def main():
         col1.metric("Effective Shock (φ)", f"{st.session_state['shock_val']:.2%}")
         col2.metric("Total Output Loss", f"€{X_loss / 1e3:,.1f} B")
         col3.metric("Total VA Loss", f"€{VA_loss / 1e3:,.1f} B")
-        col4.metric("Relative Impact", f"{X_loss_pct * 100:.4f}%")
+        # Relative Impact is already scaled (e.g. 5.0 for 5%)
+        col4.metric("Relative Impact", f"{X_loss_pct:.2f}%")
 
         # 2. Tabs for Viz
         tab_map, tab_sectors, tab_links, tab_data = st.tabs(
@@ -251,7 +254,35 @@ def main():
 
         with tab_data:
             st.markdown("### Detailed Node Impacts")
-            st.dataframe(bundle.tables["nodes"], use_container_width=True)
+
+            # Format dataframe for better readability
+            nodes_df = bundle.tables["nodes"]
+
+            column_config = {
+                "loss_pct": st.column_config.NumberColumn(
+                    "Output Loss (%)", format="%.2f%%", help="Relative loss in output"
+                ),
+                "VA_loss_pct": st.column_config.NumberColumn(
+                    "VA Loss (%)", format="%.2f%%", help="Relative loss in Value Added"
+                ),
+                "loss_abs": st.column_config.NumberColumn(
+                    "Output Loss (M€)",
+                    format="€ %.1f",
+                ),
+                "VA_loss_abs": st.column_config.NumberColumn(
+                    "VA Loss (M€)",
+                    format="€ %.1f",
+                ),
+                "geo_name": "Province",
+                "sector_name": "Sector",
+            }
+
+            st.dataframe(
+                nodes_df,
+                column_config=column_config,
+                use_container_width=True,
+                hide_index=True,
+            )
 
             csv = bundle.tables["nodes"].to_csv(index=False).encode("utf-8")
             st.download_button(
