@@ -103,13 +103,21 @@ def apply_oe_branding(fig, theme_color=None):
                         hoverinfo="skip",
                     )
                 )
-                # Update map look
+                # Update map look & center on Europe
                 fig.update_geos(
                     showcountries=True,
                     countrycolor="LightGrey",
                     showland=True,
                     landcolor="white",
+                    projection_type="mercator",
+                    # European bounds - slightly wider
+                    lataxis_range=[32, 72],
+                    lonaxis_range=[-25, 45],
+                    center=dict(lat=52, lon=10),
+                    # Ensure it fits the container
+                    fitbounds=False,
                 )
+                fig.update_layout(height=700, margin=dict(l=0, r=0, t=60, b=0))
                 # Ensure hover is also formatted correctly
                 if trace.hovertemplate:
                     trace.hovertemplate = trace.hovertemplate.replace(

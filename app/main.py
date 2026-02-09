@@ -49,7 +49,7 @@ def format_sector_label(code, decoder):
 # --- 4. Main Interface ---
 def main():
     set_streamlit_branding()
-    st.title("🌍 Physical Climate Risk Propagation [v1.2]")
+    st.title("🌍 Physical Climate Risk Propagation [v1.4]")
 
     # --- Data Loading ---
     with st.spinner("Initializing Model & Data..."):
@@ -265,13 +265,13 @@ def main():
                 "VA_loss_pct": st.column_config.NumberColumn(
                     "VA Loss (%)", format="%.2f%%", help="Relative loss in Value Added"
                 ),
-                "X_loss_abs": st.column_config.NumberColumn(
+                "loss_abs": st.column_config.NumberColumn(
                     "Output Loss (M€)",
-                    format="€%,.1f",
+                    format="€ %.1f",
                 ),
                 "VA_loss_abs": st.column_config.NumberColumn(
                     "VA Loss (M€)",
-                    format="€%,.1f",
+                    format="€ %.1f",
                 ),
                 "geo_name": "Province",
                 "sector_name": "Sector",
