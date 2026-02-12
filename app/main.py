@@ -13,7 +13,7 @@ setup_paths()
 from app.data import load_core_model_data, load_calibration_data
 from src.io_climate.calibration import shock_scalar
 from io_climate.postprocess import postprocess_results
-from io_climate.viz import build_dashboard_bundle
+from io_climate.viz import build_dashboard_bundle, plot_top_countries, iso2_to_iso3
 from app.branding import set_streamlit_branding, apply_oe_branding
 
 # --- 2. Page Config ---
@@ -175,12 +175,6 @@ def main():
                 )
 
                 bundle = build_dashboard_bundle(pp)
-                st.write(
-                    "DEBUG: IT loss_pct",
-                    pp.df_country[pp.df_country["country"] == "IT"]["loss_pct"].values[
-                        0
-                    ],
-                )
 
                 # Apply OE Branding with specific color logic
                 for fig_key in bundle.figures:
@@ -230,11 +224,52 @@ def main():
         )
 
         with tab_map:
-            st.plotly_chart(bundle.figures["country_map"], use_container_width=True)
-            with st.expander("Show Top Impacted Countries"):
-                st.plotly_chart(
-                    bundle.figures["top_countries"], use_container_width=True
+            col_map, col_bar = st.columns([3, 2])
+
+            with col_map:
+                # 1. Geographic Impact Map
+                map_fig = bundle.figures["country_map"]
+                # Default to pan and enable click selection for better UX
+                map_fig.update_layout(dragmode="pan", clickmode="event+select")
+
+                selection = st.plotly_chart(
+                    map_fig,
+                    use_container_width=True,
+                    on_select="rerun",
+                    key="map_selector",
                 )
+
+            with col_bar:
+                # 2. Dynamic Top Countries Bar Chart
+                selected_iso3 = []
+                if selection and "selection" in selection:
+                    points = selection["selection"].get("points", [])
+                    selected_iso3 = [
+                        p.get("location") for p in points if p.get("location")
+                    ]
+
+                df_country = bundle.tables["country"].copy()
+                df_country["iso3"] = df_country["country"].map(iso2_to_iso3)
+
+                if selected_iso3:
+                    df_filtered = df_country[df_country["iso3"].isin(selected_iso3)]
+                    st.caption(f"🎯 Showing {len(df_filtered)} countries active in map")
+                else:
+                    df_filtered = df_country
+                    st.caption("🔍 Showing top impacted countries (global)")
+
+                # Re-generate bar chart figure dynamically based on filter
+                fig_top = plot_top_countries(
+                    df_filtered,
+                    metric="loss_abs",
+                    top_k=20,
+                    title="Country Impact Breakdown",
+                )
+
+                # Re-apply branding theme
+                fig_top = apply_oe_branding(fig_top, theme_color="primary")
+
+                st.plotly_chart(fig_top, use_container_width=True)
 
         with tab_sectors:
             st.plotly_chart(bundle.figures["top_sectors"], use_container_width=True)

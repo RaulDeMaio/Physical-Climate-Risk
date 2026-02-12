@@ -3,5 +3,6 @@
     "jupyter.interactiveWindow.cellMarker.default": "# COMMAND ----------",
     "python.analysis.extraPaths": [
         "./src"
-    ]
+    ],
+    "chatgpt.commentCodeLensEnabled": false
 }
