@@ -28,6 +28,7 @@ class RelativeDeviationMapTests(unittest.TestCase):
             {
                 "country": ["IT", "FR", "DE"],
                 "loss_pct": [600.0, 100.0, 99.5],
+                "loss_abs": [1200.0, 75.0, 12.0],
             }
         )
         fig = plot_relative_deviation_map(df)
@@ -37,6 +38,10 @@ class RelativeDeviationMapTests(unittest.TestCase):
         self.assertAlmostEqual(float(choropleth.zmid), 0.0)
         self.assertAlmostEqual(abs(float(choropleth.zmin)), abs(float(choropleth.zmax)))
         self.assertEqual(choropleth.colorscale[0][1], "rgb(5,48,97)")
+        self.assertEqual(choropleth.colorbar.title.text, "Loss % deviation")
+        self.assertEqual(choropleth.colorbar.tickformat, ".1e")
+        self.assertIn("Loss impact (%)", choropleth.hovertemplate)
+        self.assertIn("Loss impact (abs)", choropleth.hovertemplate)
 
     def test_missing_baseline_metric_fails_gracefully(self):
         df = pd.DataFrame({"country": ["IT", "FR"], "wrong_metric": [1.0, 2.0]})

@@ -267,16 +267,42 @@ def plot_relative_deviation_map(
         title=title,
         use_country_names=use_country_names,
     )
+    loss_pct_series = (
+        pd.to_numeric(d["loss_pct"], errors="coerce")
+        if "loss_pct" in d.columns
+        else pd.Series(np.nan, index=d.index)
+    )
+    loss_abs_series = (
+        pd.to_numeric(d["loss_abs"], errors="coerce")
+        if "loss_abs" in d.columns
+        else pd.Series(np.nan, index=d.index)
+    )
+    hover_custom = np.column_stack(
+        [
+            d["country"].astype(str),
+            loss_pct_series,
+            loss_abs_series,
+        ]
+    )
+
     fig.update_traces(
         selector=dict(type="choropleth"),
         zmid=0.0,
         zmin=cmin,
         zmax=cmax,
         colorscale="RdBu_r",
-        colorbar=dict(title="Deviation (pp)"),
+        colorbar=dict(
+            title="Loss % deviation",
+            tickformat=".1e",
+            ticksuffix=" pp",
+        ),
+        customdata=hover_custom,
         hovertemplate=(
             "%{hovertext}<br>ISO2: %{customdata[0]}<br>"
-            "Deviation vs mean: %{z:.3f} pp<extra></extra>"
+            "Loss % deviation: %{z:.3f} pp<br>"
+            "Loss impact (%): %{customdata[1]:.3f}%<br>"
+            "Loss impact (abs): %{customdata[2]:,.2f}"
+            "<extra></extra>"
         ),
     )
     return fig
