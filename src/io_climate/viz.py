@@ -404,7 +404,12 @@ def plot_supply_chain_heatmap(
         return fig
 
     value_label = "ΔA" if perspective == "absolute" else "ΔA (%)"
-    scale_name = "RdBu_r"
+    # Brand diverging palette: secondary (negative) -> neutral -> primary (positive)
+    scale_name = [
+        [0.0, "#B9FF69"],
+        [0.5, "#F3E8FF"],
+        [1.0, "#4400B3"],
+    ]
 
     z_values = matrix.to_numpy()
     if clip_limit > 0.0:
@@ -435,6 +440,8 @@ def plot_supply_chain_heatmap(
         yaxis_title=f"Source {aggregation}",
         height=620,
         margin=dict(l=20, r=20, t=60, b=20),
+        font_family="'Atkinson Hyperlegible Next', Arial",
+        title_font_color="#4400B3",
     )
     show_ticks = len(matrix.columns) <= 60
     fig.update_xaxes(tickangle=45, showticklabels=show_ticks)

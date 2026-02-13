@@ -48,7 +48,7 @@
 ## Phase 3: Final Notes
 
 ### Assumptions
-- Color scale uses diverging `RdBu_r` with midpoint at zero.
+- Color scale uses the Open Economics brand diverging palette: `secondary (#B9FF69)` for negative deltas, neutral `#F3E8FF` at zero, and `primary (#4400B3)` for positive deltas.
 - Heat intensity is based on `abs(value)` with 95th percentile capping to reduce outlier domination.
 - Near-zero link changes are omitted from `df_links_all` by epsilon threshold.
 
@@ -67,3 +67,4 @@ Synthetic workload (`180,000` sparse linkage rows over `220x220` matrix):
 - Heatmap color rendering now uses **symmetric quantile clipping** (98th percentile of `abs(delta)`) to prevent outliers from flattening color contrast.
 - Hover now shows both **raw value** and **displayed clipped value**, plus normalized intensity, so scaling decisions remain transparent.
 - Axis labels are automatically hidden for very large matrices to reduce visual noise.
+- Heatmap typography/title styling follows brand guidelines (Atkinson Hyperlegible Next and primary brand title color).
