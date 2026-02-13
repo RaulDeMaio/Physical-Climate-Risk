@@ -21,9 +21,12 @@ class SupplyChainHeatmapTests(unittest.TestCase):
 
     def test_build_heatmap_frame_empty_and_null(self):
         empty = pd.DataFrame(columns=["source", "target", "delta", "delta_rel"])
-        empty_matrix, empty_norm = build_heatmap_frame(empty, perspective="absolute")
+        empty_matrix, empty_norm, empty_clip = build_heatmap_frame(
+            empty, perspective="absolute"
+        )
         self.assertTrue(empty_matrix.empty)
         self.assertTrue(empty_norm.empty)
+        self.assertEqual(empty_clip, 0.0)
 
         null_df = pd.DataFrame(
             {
@@ -33,9 +36,30 @@ class SupplyChainHeatmapTests(unittest.TestCase):
                 "delta_rel": [None, None],
             }
         )
-        null_matrix, null_norm = build_heatmap_frame(null_df, perspective="percentage")
+        null_matrix, null_norm, null_clip = build_heatmap_frame(
+            null_df, perspective="percentage"
+        )
         self.assertEqual(float(null_matrix.fillna(0).to_numpy().sum()), 0.0)
         self.assertEqual(float(null_norm.fillna(0).to_numpy().sum()), 0.0)
+        self.assertEqual(null_clip, 0.0)
+
+    def test_build_heatmap_aggregates_by_sector(self):
+        links = pd.DataFrame(
+            {
+                "i_label": ["IT::A", "IT::A", "FR::B"],
+                "j_label": ["FR::B", "DE::B", "IT::A"],
+                "delta": [1.0, 2.0, 3.0],
+                "delta_rel": [0.1, 0.2, 0.3],
+            }
+        )
+        matrix, _, _ = build_heatmap_frame(
+            links,
+            perspective="absolute",
+            aggregation="sector",
+        )
+
+        self.assertEqual(matrix.loc["A", "B"], 3.0)
+        self.assertEqual(matrix.loc["B", "A"], 3.0)
 
     def test_coordinate_bounds_clip(self):
         points = pd.DataFrame(

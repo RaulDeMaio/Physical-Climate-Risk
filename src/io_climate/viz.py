@@ -27,6 +27,7 @@ from typing import Any, Dict, Optional
 
 import textwrap
 
+import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -382,9 +383,12 @@ def plot_supply_chain_heatmap(
     df_links_all: pd.DataFrame,
     *,
     perspective: str = "absolute",
+    aggregation: str = "sector",
 ) -> Any:
     """Render a source-target supply-chain heatmap for linkage deltas."""
-    matrix, norm_matrix = build_heatmap_frame(df_links_all, perspective=perspective)
+    matrix, norm_matrix, clip_limit = build_heatmap_frame(
+        df_links_all, perspective=perspective, aggregation=aggregation
+    )
 
     if matrix.empty:
         fig = go.Figure()
@@ -402,30 +406,39 @@ def plot_supply_chain_heatmap(
     value_label = "ΔA" if perspective == "absolute" else "ΔA (%)"
     scale_name = "RdBu_r"
 
+    z_values = matrix.to_numpy()
+    if clip_limit > 0.0:
+        z_values = z_values.clip(-clip_limit, clip_limit)
+
     fig = go.Figure(
         data=go.Heatmap(
-            z=matrix.to_numpy(),
+            z=z_values,
             x=matrix.columns.tolist(),
             y=matrix.index.tolist(),
             colorscale=scale_name,
             zmid=0.0,
-            customdata=norm_matrix.to_numpy(),
+            zmin=-clip_limit if clip_limit > 0 else None,
+            zmax=clip_limit if clip_limit > 0 else None,
+            customdata=np.dstack([matrix.to_numpy(), norm_matrix.to_numpy()]),
             colorbar=dict(title=value_label),
             hovertemplate=(
                 "Source: %{y}<br>Target: %{x}<br>"
-                + f"{value_label}: %{{z:.4f}}<br>"
-                + "Intensity: %{customdata:.2f}<extra></extra>"
+                + "Raw value: %{customdata[0]:.4f}<br>"
+                + f"Displayed ({value_label}): %{{z:.4f}}<br>"
+                + "Intensity: %{customdata[1]:.2f}<extra></extra>"
             ),
         )
     )
     fig.update_layout(
-        title=f"Supply Chain Heatmap ({perspective.title()} view)",
-        xaxis_title="Target node",
-        yaxis_title="Source node",
+        title=f"Supply Chain Heatmap ({perspective.title()} · {aggregation.title()} level)",
+        xaxis_title=f"Target {aggregation}",
+        yaxis_title=f"Source {aggregation}",
         height=620,
         margin=dict(l=20, r=20, t=60, b=20),
     )
-    fig.update_xaxes(tickangle=45)
+    show_ticks = len(matrix.columns) <= 60
+    fig.update_xaxes(tickangle=45, showticklabels=show_ticks)
+    fig.update_yaxes(showticklabels=len(matrix.index) <= 60)
     return fig
 
 
@@ -483,12 +496,6 @@ def build_dashboard_bundle(
         ),
         "top_sectors": plot_top_sectors(
             pp.df_sector, metric="loss_abs", top_k=top_k_sectors
-        ),
-        "supply_chain_heatmap_absolute": plot_supply_chain_heatmap(
-            getattr(pp, "df_links_all", pd.DataFrame()), perspective="absolute"
-        ),
-        "supply_chain_heatmap_percentage": plot_supply_chain_heatmap(
-            getattr(pp, "df_links_all", pd.DataFrame()), perspective="percentage"
         ),
     }
 

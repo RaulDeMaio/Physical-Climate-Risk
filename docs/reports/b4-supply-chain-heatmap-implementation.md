@@ -60,3 +60,10 @@ Synthetic workload (`180,000` sparse linkage rows over `220x220` matrix):
 ### Integration Issues
 - Real-time feed wiring is not yet available in this repo; current integration binds to model-run outputs in-memory.
 - If future streaming introduces partial updates, an incremental matrix-update adapter should be added to avoid rebuilding from scratch.
+
+
+## Revision: Meaningful Visualization Improvements
+- Added **aggregation selector** (`sector`, `country`, `node`) so users can avoid unreadable dense node-level matrices and start from sector-level structure.
+- Heatmap color rendering now uses **symmetric quantile clipping** (98th percentile of `abs(delta)`) to prevent outliers from flattening color contrast.
+- Hover now shows both **raw value** and **displayed clipped value**, plus normalized intensity, so scaling decisions remain transparent.
+- Axis labels are automatically hidden for very large matrices to reduce visual noise.
