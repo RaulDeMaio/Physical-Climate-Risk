@@ -17,6 +17,7 @@ class EducationTier:
 @dataclass(frozen=True)
 class HazardEducationContent:
     intensity_tiers: Dict[str, EducationTier]
+    hazard_type_explanations_md: Dict[str, str]
     calibration_explanation_md: str
     fallback_hazard_description_md: str
 
@@ -44,11 +45,16 @@ EDUCATION_CONTENT = HazardEducationContent(
             description_md="Tail-risk event calibrated from the highest historical loss percentiles; systemic impacts may dominate local impacts.",
         ),
     },
+    hazard_type_explanations_md={
+        "hydrological": "**Hydrological** hazards are driven by water-system extremes (e.g., river flooding) that can disrupt transport, assets, and production continuity.",
+        "meteorological": "**Meteorological** hazards include short-duration atmospheric events (e.g., storms) that create direct and indirect supply-chain interruptions.",
+        "climatological": "**Climatological** hazards are longer-duration climate anomalies (e.g., drought, wildfire-conducive conditions) that can reduce sectoral output over extended periods.",
+    },
     calibration_explanation_md=(
         "Calibration maps **historical hazard losses** to country-level output and computes an intensity scalar (φ). "
         "Each tier (moderate → very_extreme) corresponds to progressively higher historical percentiles in the calibration table."
     ),
-    fallback_hazard_description_md="No hazard-specific education text is available yet for this hazard.",
+    fallback_hazard_description_md="No hazard-type education text is available yet for this hazard.",
 )
 
 
@@ -69,17 +75,13 @@ def compute_quiz_score(correct_answers: int, total_questions: int) -> float:
     return round((max(0, correct_answers) / total_questions) * 100.0, 2)
 
 
-def calculate_progress(completed_steps: int, total_steps: int) -> float:
-    if total_steps <= 0:
-        return 0.0
-    return min(1.0, max(0.0, completed_steps / total_steps))
-
-
-def persist_education_progress(session_state: dict, key: str, step: str):
-    if key not in session_state:
-        session_state[key] = []
-    if step not in session_state[key]:
-        session_state[key].append(step)
+def get_hazard_type_explanation(selected_hazard: str) -> str:
+    if not selected_hazard:
+        return EDUCATION_CONTENT.fallback_hazard_description_md
+    return EDUCATION_CONTENT.hazard_type_explanations_md.get(
+        selected_hazard.strip().lower(),
+        EDUCATION_CONTENT.fallback_hazard_description_md,
+    )
 
 
 def render_education_panel(selected_level: str, selected_hazard: str):
@@ -91,7 +93,9 @@ def render_education_panel(selected_level: str, selected_hazard: str):
         else:
             st.warning("Selected intensity definition is unavailable.")
 
+        st.markdown("**Hazard type**")
+        st.markdown(get_hazard_type_explanation(selected_hazard))
+
         st.markdown("**Calibration logic**")
         st.markdown(EDUCATION_CONTENT.calibration_explanation_md)
         st.caption(f"Selected hazard: `{selected_hazard}`")
-

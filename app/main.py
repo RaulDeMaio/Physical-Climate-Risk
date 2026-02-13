@@ -18,8 +18,6 @@ from app.branding import set_streamlit_branding, apply_oe_branding
 from app.education import (
     build_hazard_catalog,
     filter_intensity_levels,
-    calculate_progress,
-    persist_education_progress,
     render_education_panel,
 )
 
@@ -84,9 +82,6 @@ def main():
         sel_level = st.sidebar.selectbox("Intensity", levels, index=2)
 
         render_education_panel(selected_level=sel_level, selected_hazard=sel_hazard)
-        persist_education_progress(st.session_state, "hazard_education_steps", "opened_education")
-        progress = calculate_progress(len(st.session_state.get("hazard_education_steps", [])), 3)
-        st.sidebar.progress(progress, text=f"Education progress: {progress:.0%}")
 
         if st.sidebar.button("Run Simulation", type="primary"):
             run_params = {
