@@ -19,7 +19,13 @@ from io_climate.viz import (
     plot_top_countries,
     iso2_to_iso3,
 )
-from app.branding import set_streamlit_branding, apply_oe_branding
+from app.branding import set_streamlit_branding, apply_oe_branding, load_design_tokens
+from app.education import (
+    build_hazard_catalog,
+    filter_intensity_levels,
+    render_education_panel,
+)
+from app.ui.table_styling import apply_table_branding, build_branded_styler
 
 # --- 2. Page Config ---
 st.set_page_config(
@@ -69,9 +75,11 @@ def main():
 
     if mode == "Hazard Calibration":
         st.sidebar.subheader("Hazard Parameters")
-        hazard_opts = sorted(pct_table["hazard"].unique())
+        hazard_opts = build_hazard_catalog(pct_table)
         countries = sorted(pct_table["ISO2"].unique())
-        levels = ["moderate", "severe", "extreme", "very_extreme"]
+        levels = filter_intensity_levels(
+            ["moderate", "severe", "extreme", "very_extreme"]
+        )
 
         sel_country = st.sidebar.selectbox(
             "Country",
@@ -80,6 +88,8 @@ def main():
         )
         sel_hazard = st.sidebar.selectbox("Hazard Type", hazard_opts)
         sel_level = st.sidebar.selectbox("Intensity", levels, index=2)
+
+        render_education_panel(selected_level=sel_level, selected_hazard=sel_hazard)
 
         if st.sidebar.button("Run Simulation", type="primary"):
             run_params = {
@@ -318,6 +328,10 @@ def main():
         with tab_data:
             st.markdown("### Detailed Node Impacts")
 
+            # Apply global table branding with graceful theme fallback
+            theme_mode = st.get_option("theme.base") or "light"
+            apply_table_branding(load_design_tokens(), mode=theme_mode)
+
             # Format dataframe for better readability
             nodes_df = bundle.tables["nodes"]
 
@@ -340,8 +354,18 @@ def main():
                 "sector_name": "Sector",
             }
 
-            st.dataframe(
+            styled_nodes_df = build_branded_styler(
                 nodes_df,
+                key_metric_columns=[
+                    "loss_pct",
+                    "VA_loss_pct",
+                    "loss_abs",
+                    "VA_loss_abs",
+                ],
+            )
+
+            st.dataframe(
+                styled_nodes_df,
                 column_config=column_config,
                 use_container_width=True,
                 hide_index=True,
