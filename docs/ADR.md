@@ -63,8 +63,8 @@ graph TD
     A3[Map Centering - DONE]
     A4[Branded Tables - DONE]
 
-    B1[Relative Deviation Map - TO DO]
-    B2[Enhanced Map Hover - TO DO]
+    B1[Relative Deviation Map - DONE]
+    B2[Enhanced Map Hover - DONE]
     B3[Deviation Plots in Supply Chain - TO DO]
     B4[Heatmap in Supply Chain - DONE]
     B5[Supply Chain Consolidation - TO DO]
@@ -113,7 +113,7 @@ graph TD
   - ~~Branded Tables (`A4`), Hazard Education (`C1`),~~ and Encryption (`E2`) are largely independent.
   - ~~Heatmap work (`B4`) can proceed independently of deviation-map implementation until integration in combined tab.~~
 - **Hard dependencies**:
-  - Relative Deviation Map (`B1`) should precede Enhanced Hover (`B2`) and Deviation Plots (`B3`) because they reuse its metric contract.
+  - ~~Relative Deviation Map (`B1`) should precede Enhanced Hover (`B2`)~~ and Deviation Plots (`B3`) because they reuse its metric contract.
   - Supply Chain Consolidation (`B5`) and Heatmap (`B4`) should be completed before final tab merge (`B6`).
   - Encryption controls (`E2`) should precede secrets finalization (`E3`) and inform refactoring decisions (`F1`).
 
