@@ -15,6 +15,11 @@ from src.io_climate.calibration import shock_scalar
 from io_climate.postprocess import postprocess_results
 from io_climate.viz import build_dashboard_bundle, plot_top_countries, iso2_to_iso3
 from app.branding import set_streamlit_branding, apply_oe_branding, load_design_tokens
+from app.education import (
+    build_hazard_catalog,
+    filter_intensity_levels,
+    render_education_panel,
+)
 from app.ui.table_styling import apply_table_branding, build_branded_styler
 
 # --- 2. Page Config ---
@@ -65,9 +70,9 @@ def main():
 
     if mode == "Hazard Calibration":
         st.sidebar.subheader("Hazard Parameters")
-        hazard_opts = sorted(pct_table["hazard"].unique())
+        hazard_opts = build_hazard_catalog(pct_table)
         countries = sorted(pct_table["ISO2"].unique())
-        levels = ["moderate", "severe", "extreme", "very_extreme"]
+        levels = filter_intensity_levels(["moderate", "severe", "extreme", "very_extreme"])
 
         sel_country = st.sidebar.selectbox(
             "Country",
@@ -76,6 +81,8 @@ def main():
         )
         sel_hazard = st.sidebar.selectbox("Hazard Type", hazard_opts)
         sel_level = st.sidebar.selectbox("Intensity", levels, index=2)
+
+        render_education_panel(selected_level=sel_level, selected_hazard=sel_hazard)
 
         if st.sidebar.button("Run Simulation", type="primary"):
             run_params = {
