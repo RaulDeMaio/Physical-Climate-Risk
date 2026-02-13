@@ -31,7 +31,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
-from config import labels
+from src.io_climate.config import labels
 
 # ---------------------------------------------------------------------
 # Country name decoding (ISO-2 -> ISO-3 + full name)
