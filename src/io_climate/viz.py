@@ -27,11 +27,13 @@ from typing import Any, Dict, Optional
 
 import textwrap
 
+import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
 from src.io_climate.config import labels
+from src.io_climate.supply_chain_heatmap import build_heatmap_frame
 
 # ---------------------------------------------------------------------
 # Country name decoding (ISO-2 -> ISO-3 + full name)
@@ -377,6 +379,76 @@ def plot_linkage_changes(
     }
 
 
+def plot_supply_chain_heatmap(
+    df_links_all: pd.DataFrame,
+    *,
+    perspective: str = "absolute",
+    aggregation: str = "sector",
+) -> Any:
+    """Render a source-target supply-chain heatmap for linkage deltas."""
+    matrix, norm_matrix, clip_limit = build_heatmap_frame(
+        df_links_all, perspective=perspective, aggregation=aggregation
+    )
+
+    if matrix.empty:
+        fig = go.Figure()
+        fig.add_annotation(
+            text="No supply-chain linkage data available for heatmap.",
+            x=0.5,
+            y=0.5,
+            xref="paper",
+            yref="paper",
+            showarrow=False,
+        )
+        fig.update_layout(height=520, xaxis_visible=False, yaxis_visible=False)
+        return fig
+
+    value_label = "ΔA" if perspective == "absolute" else "ΔA (%)"
+    # Brand diverging palette: secondary (negative) -> neutral -> primary (positive)
+    scale_name = [
+        [0.0, "#B9FF69"],
+        [0.5, "#F3E8FF"],
+        [1.0, "#4400B3"],
+    ]
+
+    z_values = matrix.to_numpy()
+    if clip_limit > 0.0:
+        z_values = z_values.clip(-clip_limit, clip_limit)
+
+    fig = go.Figure(
+        data=go.Heatmap(
+            z=z_values,
+            x=matrix.columns.tolist(),
+            y=matrix.index.tolist(),
+            colorscale=scale_name,
+            zmid=0.0,
+            zmin=-clip_limit if clip_limit > 0 else None,
+            zmax=clip_limit if clip_limit > 0 else None,
+            customdata=np.dstack([matrix.to_numpy(), norm_matrix.to_numpy()]),
+            colorbar=dict(title=value_label),
+            hovertemplate=(
+                "Source: %{y}<br>Target: %{x}<br>"
+                + "Raw value: %{customdata[0]:.4f}<br>"
+                + f"Displayed ({value_label}): %{{z:.4f}}<br>"
+                + "Intensity: %{customdata[1]:.2f}<extra></extra>"
+            ),
+        )
+    )
+    fig.update_layout(
+        title=f"Supply Chain Heatmap ({perspective.title()} · {aggregation.title()} level)",
+        xaxis_title=f"Target {aggregation}",
+        yaxis_title=f"Source {aggregation}",
+        height=620,
+        margin=dict(l=20, r=20, t=60, b=20),
+        font_family="'Atkinson Hyperlegible Next', Arial",
+        title_font_color="#4400B3",
+    )
+    show_ticks = len(matrix.columns) <= 60
+    fig.update_xaxes(tickangle=45, showticklabels=show_ticks)
+    fig.update_yaxes(showticklabels=len(matrix.index) <= 60)
+    return fig
+
+
 # ---------------------------------------------------------------------
 # Bundle builder (dashboard-ready)
 # ---------------------------------------------------------------------
@@ -414,6 +486,7 @@ def build_dashboard_bundle(
         "sector": pp.df_sector,
         "links_strengthened": pp.df_links_strengthened,
         "links_weakened": pp.df_links_weakened,
+        "links_all": getattr(pp, "df_links_all", pd.DataFrame()),
     }
 
     figures: Dict[str, Any] = {

@@ -13,7 +13,12 @@ setup_paths()
 from app.data import load_core_model_data, load_calibration_data
 from src.io_climate.calibration import shock_scalar
 from io_climate.postprocess import postprocess_results
-from io_climate.viz import build_dashboard_bundle, plot_top_countries, iso2_to_iso3
+from io_climate.viz import (
+    build_dashboard_bundle,
+    plot_supply_chain_heatmap,
+    plot_top_countries,
+    iso2_to_iso3,
+)
 from app.branding import set_streamlit_branding, apply_oe_branding, load_design_tokens
 from app.education import (
     build_hazard_catalog,
@@ -72,7 +77,9 @@ def main():
         st.sidebar.subheader("Hazard Parameters")
         hazard_opts = build_hazard_catalog(pct_table)
         countries = sorted(pct_table["ISO2"].unique())
-        levels = filter_intensity_levels(["moderate", "severe", "extreme", "very_extreme"])
+        levels = filter_intensity_levels(
+            ["moderate", "severe", "extreme", "very_extreme"]
+        )
 
         sel_country = st.sidebar.selectbox(
             "Country",
@@ -283,6 +290,29 @@ def main():
             st.plotly_chart(bundle.figures["top_sectors"], use_container_width=True)
 
         with tab_links:
+            control_col1, control_col2 = st.columns([1, 1])
+            with control_col1:
+                heatmap_mode = st.segmented_control(
+                    "Heatmap perspective",
+                    options=["absolute", "percentage"],
+                    default="absolute",
+                    key="supply_chain_heatmap_mode",
+                )
+            with control_col2:
+                heatmap_aggregation = st.selectbox(
+                    "Heatmap aggregation",
+                    options=["sector", "country", "node"],
+                    index=0,
+                    help="Aggregate linkage deltas to improve readability for dense node-level matrices.",
+                )
+
+            heatmap_fig = plot_supply_chain_heatmap(
+                bundle.tables.get("links_all"),
+                perspective=heatmap_mode,
+                aggregation=heatmap_aggregation,
+            )
+            st.plotly_chart(heatmap_fig, use_container_width=True)
+
             col_l, col_r = st.columns(2)
             if "links_weakened" in bundle.figures:
                 with col_l:
@@ -326,7 +356,12 @@ def main():
 
             styled_nodes_df = build_branded_styler(
                 nodes_df,
-                key_metric_columns=["loss_pct", "VA_loss_pct", "loss_abs", "VA_loss_abs"],
+                key_metric_columns=[
+                    "loss_pct",
+                    "VA_loss_pct",
+                    "loss_abs",
+                    "VA_loss_abs",
+                ],
             )
 
             st.dataframe(
