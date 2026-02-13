@@ -14,12 +14,13 @@ from app.data import load_core_model_data, load_calibration_data
 from src.io_climate.calibration import shock_scalar
 from io_climate.postprocess import postprocess_results
 from io_climate.viz import build_dashboard_bundle, plot_top_countries, iso2_to_iso3
-from app.branding import set_streamlit_branding, apply_oe_branding
+from app.branding import set_streamlit_branding, apply_oe_branding, load_design_tokens
 from app.education import (
     build_hazard_catalog,
     filter_intensity_levels,
     render_education_panel,
 )
+from app.ui.table_styling import apply_table_branding, build_branded_styler
 
 # --- 2. Page Config ---
 st.set_page_config(
@@ -297,6 +298,10 @@ def main():
         with tab_data:
             st.markdown("### Detailed Node Impacts")
 
+            # Apply global table branding with graceful theme fallback
+            theme_mode = st.get_option("theme.base") or "light"
+            apply_table_branding(load_design_tokens(), mode=theme_mode)
+
             # Format dataframe for better readability
             nodes_df = bundle.tables["nodes"]
 
@@ -319,8 +324,13 @@ def main():
                 "sector_name": "Sector",
             }
 
-            st.dataframe(
+            styled_nodes_df = build_branded_styler(
                 nodes_df,
+                key_metric_columns=["loss_pct", "VA_loss_pct", "loss_abs", "VA_loss_abs"],
+            )
+
+            st.dataframe(
+                styled_nodes_df,
                 column_config=column_config,
                 use_container_width=True,
                 hide_index=True,
