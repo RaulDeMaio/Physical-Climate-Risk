@@ -215,6 +215,73 @@ def plot_country_map(
     return fig
 
 
+def compute_relative_deviation(
+    df_country: pd.DataFrame,
+    *,
+    metric: str = "loss_pct",
+    output_col: str = "loss_pct_deviation",
+) -> pd.DataFrame:
+    """Compute relative deviation against scenario mean for the selected metric."""
+    if metric not in df_country.columns:
+        raise ValueError(f"Baseline metric '{metric}' is missing from country dataset.")
+
+    d = df_country.copy()
+    baseline = pd.to_numeric(d[metric], errors="coerce")
+    mean_val = baseline.mean(skipna=True)
+    d[output_col] = baseline - mean_val
+    return d
+
+
+def _symmetric_color_range(values: pd.Series) -> tuple[float, float]:
+    """Build a symmetric [min, max] range around zero for diverging color scales."""
+    numeric = pd.to_numeric(values, errors="coerce").dropna()
+    if numeric.empty:
+        return (-1.0, 1.0)
+    max_abs = float(np.abs(numeric).max())
+    max_abs = max(max_abs, 1e-9)
+    return (-max_abs, max_abs)
+
+
+def plot_relative_deviation_map(
+    df_country: pd.DataFrame,
+    *,
+    baseline_metric: str = "loss_pct",
+    deviation_metric: str = "loss_pct_deviation",
+    title: Optional[str] = None,
+    use_country_names: bool = True,
+) -> Any:
+    """Choropleth map for loss percentage deviation from scenario mean."""
+    d = compute_relative_deviation(
+        df_country,
+        metric=baseline_metric,
+        output_col=deviation_metric,
+    )
+
+    if title is None:
+        title = "Country impact deviation vs scenario mean (percentage points)"
+
+    cmin, cmax = _symmetric_color_range(d[deviation_metric])
+    fig = plot_country_map(
+        d,
+        metric=deviation_metric,
+        title=title,
+        use_country_names=use_country_names,
+    )
+    fig.update_traces(
+        selector=dict(type="choropleth"),
+        zmid=0.0,
+        zmin=cmin,
+        zmax=cmax,
+        colorscale="RdBu_r",
+        colorbar=dict(title="Deviation (pp)"),
+        hovertemplate=(
+            "%{hovertext}<br>ISO2: %{customdata[0]}<br>"
+            "Deviation vs mean: %{z:.3f} pp<extra></extra>"
+        ),
+    )
+    return fig
+
+
 def plot_top_countries(
     df_country: pd.DataFrame,
     metric: str = "loss_abs",
@@ -466,7 +533,7 @@ class DashboardBundle:
 def build_dashboard_bundle(
     pp: Any,
     *,
-    country_metric_for_map: str = "loss_pct",
+    country_metric_for_map: str = "loss_pct_deviation",
     top_k_countries: int = 20,
     top_k_sectors: int = 20,
     top_k_links: int = 20,
@@ -489,11 +556,28 @@ def build_dashboard_bundle(
         "links_all": getattr(pp, "df_links_all", pd.DataFrame()),
     }
 
+    country_frame = pp.df_country.copy()
+    if country_metric_for_map == "loss_pct_deviation":
+        country_frame = compute_relative_deviation(
+            country_frame,
+            metric="loss_pct",
+            output_col="loss_pct_deviation",
+        )
+
     figures: Dict[str, Any] = {
-        "country_map": plot_country_map(
-            pp.df_country,
-            metric=country_metric_for_map,
-            use_country_names=use_country_names,
+        "country_map": (
+            plot_relative_deviation_map(
+                country_frame,
+                baseline_metric="loss_pct",
+                deviation_metric="loss_pct_deviation",
+                use_country_names=use_country_names,
+            )
+            if country_metric_for_map == "loss_pct_deviation"
+            else plot_country_map(
+                country_frame,
+                metric=country_metric_for_map,
+                use_country_names=use_country_names,
+            )
         ),
         "top_countries": plot_top_countries(
             pp.df_country,
