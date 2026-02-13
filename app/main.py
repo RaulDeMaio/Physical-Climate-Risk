@@ -16,6 +16,7 @@ from io_climate.postprocess import postprocess_results
 from io_climate.viz import (
     build_dashboard_bundle,
     plot_supply_chain_heatmap,
+    plot_supply_chain_deviation_bars,
     plot_top_countries,
     iso2_to_iso3,
 )
@@ -204,6 +205,7 @@ def main():
                     )
 
                 st.session_state["bundle"] = bundle
+
                 st.session_state["has_run"] = True
 
             except Exception as e:
@@ -305,6 +307,16 @@ def main():
                     index=0,
                     help="Aggregate linkage deltas to improve readability for dense node-level matrices.",
                 )
+
+            deviation_fig = plot_supply_chain_deviation_bars(
+                bundle.tables.get("sector", bundle.tables["nodes"]),
+                baseline_metric="loss_pct",
+                ranking_mode="top_bottom",
+                top_k=20,
+                title="Sector Deviation vs Scenario Mean (Top/Bottom anomalies)",
+            )
+            deviation_fig = apply_oe_branding(deviation_fig, theme_color="primary")
+            st.plotly_chart(deviation_fig, use_container_width=True)
 
             heatmap_fig = plot_supply_chain_heatmap(
                 bundle.tables.get("links_all"),

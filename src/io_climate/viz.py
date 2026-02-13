@@ -111,6 +111,125 @@ def wrap_label(s: str, width: int = 32) -> str:
     return "<br>".join(textwrap.wrap(s, width=width)) if len(s) > width else s
 
 
+def compute_mean_deviation(
+    df: pd.DataFrame,
+    *,
+    metric: str,
+    output_col: str,
+) -> pd.DataFrame:
+    """Compute row-wise deviation from the scenario mean for a selected metric."""
+    if metric not in df.columns:
+        raise ValueError(f"Baseline metric '{metric}' is missing from dataset.")
+
+    d = df.copy()
+    values = pd.to_numeric(d[metric], errors="coerce")
+    mean_val = values.mean(skipna=True)
+    d[output_col] = values - mean_val
+    return d
+
+
+def prepare_supply_chain_deviation_frame(
+    df_sector: pd.DataFrame,
+    *,
+    baseline_metric: str = "loss_pct",
+    deviation_metric: str = "loss_pct_deviation",
+    ranking_mode: str = "top_bottom",
+    top_k: int = 20,
+) -> pd.DataFrame:
+    """Prepare sector-level deviation data for plotting."""
+    d = compute_mean_deviation(df_sector, metric=baseline_metric, output_col=deviation_metric)
+
+    label_col = "sector_name" if "sector_name" in d.columns else "sector"
+    if label_col not in d.columns:
+        raise ValueError("df_sector must contain either 'sector_name' or 'sector'.")
+    d["sector_label"] = d[label_col].astype(str)
+
+    if ranking_mode == "full_distribution":
+        return d.sort_values(deviation_metric, ascending=True)
+
+    positives = d[d[deviation_metric] > 0].nlargest(int(top_k), deviation_metric)
+    negatives = d[d[deviation_metric] < 0].nsmallest(int(top_k), deviation_metric)
+    selected = pd.concat([negatives, positives], ignore_index=True)
+    return selected.sort_values(deviation_metric, ascending=True)
+
+
+def plot_supply_chain_deviation_bars(
+    df_sector: pd.DataFrame,
+    *,
+    baseline_metric: str = "loss_pct",
+    deviation_metric: str = "loss_pct_deviation",
+    ranking_mode: str = "top_bottom",
+    top_k: int = 20,
+    title: str = "Supply Chain Sector Deviation Plot",
+) -> Any:
+    """Horizontal diverging bars of sector anomaly vs scenario mean (zero-centered)."""
+    d = prepare_supply_chain_deviation_frame(
+        df_sector,
+        baseline_metric=baseline_metric,
+        deviation_metric=deviation_metric,
+        ranking_mode=ranking_mode,
+        top_k=top_k,
+    )
+
+    if d.empty:
+        fig = go.Figure()
+        fig.add_annotation(
+            text="No sector deviation data available.",
+            x=0.5,
+            y=0.5,
+            xref="paper",
+            yref="paper",
+            showarrow=False,
+        )
+        fig.update_layout(height=420, xaxis_visible=False, yaxis_visible=False)
+        return fig
+
+    d["direction"] = np.where(d[deviation_metric] >= 0.0, "Positive", "Negative")
+    d["loss_abs_hover"] = pd.to_numeric(d.get("loss_abs", np.nan), errors="coerce")
+    d["loss_pct_hover"] = pd.to_numeric(d.get("loss_pct", np.nan), errors="coerce")
+
+    fig = px.bar(
+        d,
+        x=deviation_metric,
+        y="sector_label",
+        orientation="h",
+        color="direction",
+        color_discrete_map={"Positive": "#4400B3", "Negative": "#B9FF69"},
+        text=deviation_metric,
+        title=title,
+        custom_data=["loss_pct_hover", "loss_abs_hover"],
+    )
+    fig.update_traces(
+        texttemplate="%{text:.3f} pp",
+        textposition="outside",
+        hovertemplate=(
+            "Sector: %{y}<br>"
+            "Deviation vs mean: %{x:.3f} pp<br>"
+            "Loss impact (%): %{customdata[0]:.3f}%<br>"
+            "Loss impact (abs): %{customdata[1]:,.2f}<extra></extra>"
+        ),
+    )
+    fig.update_layout(
+        height=max(520, 26 * len(d) + 180),
+        margin=dict(l=260, r=40, t=60, b=20),
+        xaxis_title="Deviation from mean relative sectoral impact (pp)",
+        yaxis_title="",
+        legend_title_text="",
+    )
+    fig.add_vline(x=0.0, line_dash="dot", line_color="#111111", line_width=2)
+    return fig
+
+
+def compute_relative_deviation(
+    df_country: pd.DataFrame,
+    *,
+    metric: str = "loss_pct",
+    output_col: str = "loss_pct_deviation",
+) -> pd.DataFrame:
+    """Compute relative deviation against scenario mean for the selected metric."""
+    return compute_mean_deviation(df_country, metric=metric, output_col=output_col)
+
+
 # ---------------------------------------------------------------------
 # Plot builders
 # ---------------------------------------------------------------------
@@ -214,22 +333,6 @@ def plot_country_map(
     )
     return fig
 
-
-def compute_relative_deviation(
-    df_country: pd.DataFrame,
-    *,
-    metric: str = "loss_pct",
-    output_col: str = "loss_pct_deviation",
-) -> pd.DataFrame:
-    """Compute relative deviation against scenario mean for the selected metric."""
-    if metric not in df_country.columns:
-        raise ValueError(f"Baseline metric '{metric}' is missing from country dataset.")
-
-    d = df_country.copy()
-    baseline = pd.to_numeric(d[metric], errors="coerce")
-    mean_val = baseline.mean(skipna=True)
-    d[output_col] = baseline - mean_val
-    return d
 
 
 def _symmetric_color_range(values: pd.Series) -> tuple[float, float]:
