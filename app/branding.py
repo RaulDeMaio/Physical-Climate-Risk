@@ -77,52 +77,29 @@ def apply_oe_branding(fig, theme_color=None):
                 # Increase margin to avoid clipping
                 fig.update_layout(margin=dict(r=80))
 
-        # Choropleth Map Labels
-        if trace.type == "choropleth":
-            # Add static labels overlay
-            if trace.locations is not None and trace.z is not None:
-                label_text = []
-                for val in trace.z:
-                    # Check if percentage or absolute
-                    is_pct_map = "loss_pct" in (fig.layout.title.text or "").lower()
-                    if is_pct_map or (0 < abs(val) < 1.0):
-                        # If value is > 1.0, it's likely already scaled (e.g. 5.1 for 5.1%)
-                        display_val = val if abs(val) > 1.0 else val * 100
-                        label_text.append(f"{display_val:.1f}%")
-                    else:
-                        label_text.append(f"{val:,.1f}")
+        # Choropleth Map Look & Hover (Roadmap Enhancement)
+        elif trace.type == "choropleth":
+            # Update map look & center on Europe
+            fig.update_geos(
+                showcountries=True,
+                countrycolor="LightGrey",
+                showland=True,
+                landcolor="white",
+                projection_type="mercator",
+                # European bounds - slightly wider
+                lataxis_range=[32, 72],
+                lonaxis_range=[-25, 45],
+                center=dict(lat=52, lon=10),
+                # Ensure it fits the container
+                fitbounds=False,
+            )
+            fig.update_layout(height=700, margin=dict(l=0, r=0, t=60, b=0))
 
-                fig.add_trace(
-                    go.Scattergeo(
-                        locations=trace.locations,
-                        locationmode=trace.locationmode,
-                        text=label_text,
-                        mode="text",
-                        textfont=dict(color="black", size=12, weight="bold"),
-                        showlegend=False,
-                        hoverinfo="skip",
-                    )
-                )
-                # Update map look & center on Europe
-                fig.update_geos(
-                    showcountries=True,
-                    countrycolor="LightGrey",
-                    showland=True,
-                    landcolor="white",
-                    projection_type="mercator",
-                    # European bounds - slightly wider
-                    lataxis_range=[32, 72],
-                    lonaxis_range=[-25, 45],
-                    center=dict(lat=52, lon=10),
-                    # Ensure it fits the container
-                    fitbounds=False,
-                )
-                fig.update_layout(height=700, margin=dict(l=0, r=0, t=60, b=0))
-                # Ensure hover is also formatted correctly
-                if trace.hovertemplate:
-                    trace.hovertemplate = trace.hovertemplate.replace(
-                        "%{z}", "%{z:.2%}"
-                    )
+            # Fix hover template to show decimals, as viz.py provides values in 0-100 scale
+            if trace.hovertemplate:
+                trace.hovertemplate = trace.hovertemplate.replace(
+                    "%{z:.2%}", "%{z:.3f}%"
+                ).replace("%{z}", "%{z:.3f}%")
 
     return fig
 

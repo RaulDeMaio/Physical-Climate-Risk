@@ -31,6 +31,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
+from src.io_climate.config import labels
 
 # ---------------------------------------------------------------------
 # Country name decoding (ISO-2 -> ISO-3 + full name)
@@ -150,7 +151,7 @@ def plot_country_map(
     hover_name = "country_name" if use_country_names else "country"
 
     if title is None:
-        title = f"Country impact ({metric})"
+        title = f"Country impact ({labels[metric]})"
 
     hover_data = {
         "country": True,
@@ -159,9 +160,11 @@ def plot_country_map(
     }
 
     # Add metric with proper formatting
-    if metric == "loss_pct":
-        d["loss_pct_formatted"] = (d[metric] * 100).round(1).astype(str) + "%"
-        hover_data[metric] = ":.2%"
+    is_pct = metric.endswith("_pct")
+    if is_pct:
+        # Values are already in 0-100 scale (from postprocess_results)
+        # We don't use Plotly's ":" formatter with "%" because it multiplies by 100.
+        hover_data[metric] = ":.3f"
     else:
         hover_data[metric] = ":.4f" if d[metric].dtype.kind in "fc" else True
 
@@ -183,9 +186,9 @@ def plot_country_map(
     # For now, we show all impacted countries.
 
     label_text = (
-        (label_df[metric] * 100).map("{:.1f}%".format)
-        if metric == "loss_pct"
-        else label_df[metric].map("{:,.1f}".format)
+        [f"{v:.3f}%" for v in label_df[metric]]
+        if is_pct
+        else [f"{v:,.1f}" for v in label_df[metric]]
     )
 
     fig.add_trace(
@@ -248,7 +251,7 @@ def plot_top_countries(
     )
     fig.update_layout(
         height=max(420, 22 * len(d) + 140),
-        margin=dict(l=180, r=40, t=60, b=20),  # Increased right margin for labels
+        margin=dict(l=20, r=20, t=40, b=20),
         yaxis_title="",
     )
     return fig
