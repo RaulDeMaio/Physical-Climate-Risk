@@ -32,6 +32,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 from src.io_climate.config import labels
+from src.io_climate.supply_chain_heatmap import build_heatmap_frame
 
 # ---------------------------------------------------------------------
 # Country name decoding (ISO-2 -> ISO-3 + full name)
@@ -377,6 +378,57 @@ def plot_linkage_changes(
     }
 
 
+def plot_supply_chain_heatmap(
+    df_links_all: pd.DataFrame,
+    *,
+    perspective: str = "absolute",
+) -> Any:
+    """Render a source-target supply-chain heatmap for linkage deltas."""
+    matrix, norm_matrix = build_heatmap_frame(df_links_all, perspective=perspective)
+
+    if matrix.empty:
+        fig = go.Figure()
+        fig.add_annotation(
+            text="No supply-chain linkage data available for heatmap.",
+            x=0.5,
+            y=0.5,
+            xref="paper",
+            yref="paper",
+            showarrow=False,
+        )
+        fig.update_layout(height=520, xaxis_visible=False, yaxis_visible=False)
+        return fig
+
+    value_label = "ΔA" if perspective == "absolute" else "ΔA (%)"
+    scale_name = "RdBu_r"
+
+    fig = go.Figure(
+        data=go.Heatmap(
+            z=matrix.to_numpy(),
+            x=matrix.columns.tolist(),
+            y=matrix.index.tolist(),
+            colorscale=scale_name,
+            zmid=0.0,
+            customdata=norm_matrix.to_numpy(),
+            colorbar=dict(title=value_label),
+            hovertemplate=(
+                "Source: %{y}<br>Target: %{x}<br>"
+                + f"{value_label}: %{{z:.4f}}<br>"
+                + "Intensity: %{customdata:.2f}<extra></extra>"
+            ),
+        )
+    )
+    fig.update_layout(
+        title=f"Supply Chain Heatmap ({perspective.title()} view)",
+        xaxis_title="Target node",
+        yaxis_title="Source node",
+        height=620,
+        margin=dict(l=20, r=20, t=60, b=20),
+    )
+    fig.update_xaxes(tickangle=45)
+    return fig
+
+
 # ---------------------------------------------------------------------
 # Bundle builder (dashboard-ready)
 # ---------------------------------------------------------------------
@@ -414,6 +466,7 @@ def build_dashboard_bundle(
         "sector": pp.df_sector,
         "links_strengthened": pp.df_links_strengthened,
         "links_weakened": pp.df_links_weakened,
+        "links_all": getattr(pp, "df_links_all", pd.DataFrame()),
     }
 
     figures: Dict[str, Any] = {
@@ -430,6 +483,12 @@ def build_dashboard_bundle(
         ),
         "top_sectors": plot_top_sectors(
             pp.df_sector, metric="loss_abs", top_k=top_k_sectors
+        ),
+        "supply_chain_heatmap_absolute": plot_supply_chain_heatmap(
+            getattr(pp, "df_links_all", pd.DataFrame()), perspective="absolute"
+        ),
+        "supply_chain_heatmap_percentage": plot_supply_chain_heatmap(
+            getattr(pp, "df_links_all", pd.DataFrame()), perspective="percentage"
         ),
     }
 

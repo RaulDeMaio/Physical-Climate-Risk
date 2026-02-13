@@ -26,6 +26,8 @@ class PostProcessOutputs:
         Top weakened linkages (by delta technical coefficient or delta flow).
     df_links_strengthened : pd.DataFrame
         Top strengthened linkages.
+    df_links_all : pd.DataFrame
+        Sparse full linkage deltas for heatmap rendering.
     meta : dict
         Additional metadata and scalar KPIs.
     """
@@ -34,6 +36,7 @@ class PostProcessOutputs:
     df_sector: pd.DataFrame
     df_links_weakened: pd.DataFrame
     df_links_strengthened: pd.DataFrame
+    df_links_all: pd.DataFrame
     meta: Dict[str, float]
 
 
@@ -227,6 +230,15 @@ def postprocess_results(
         df_sector = df_sector.merge(emp_sector, on=sector_group_cols, how="left")
 
     # ---- linkage deltas ----
+    df_links_all = linkage_delta_table(
+        node_labels=node_labels,
+        Z0=Z0,
+        X0=X0,
+        Z1=Z1,
+        X1=X1,
+        metric=linkage_metric,
+    )
+
     df_links_weakened, df_links_strengthened = top_linkage_changes(
         node_labels=node_labels,
         Z0=Z0,
@@ -265,10 +277,63 @@ def postprocess_results(
         df_sector=df_sector.sort_values("loss_abs", ascending=False),
         df_links_weakened=df_links_weakened,
         df_links_strengthened=df_links_strengthened,
+        df_links_all=df_links_all,
         meta=meta,
     )
 
 
+
+
+def linkage_delta_table(
+    *,
+    node_labels: Sequence[str],
+    Z0: np.ndarray,
+    X0: np.ndarray,
+    Z1: np.ndarray,
+    X1: np.ndarray,
+    metric: str = "A",
+    min_abs_delta: float = 1e-12,
+) -> pd.DataFrame:
+    """Build sparse full linkage-delta table for heatmap transformations."""
+    Z0 = np.asarray(Z0, dtype=float)
+    Z1 = np.asarray(Z1, dtype=float)
+    X0 = np.asarray(X0, dtype=float).reshape(-1)
+    X1 = np.asarray(X1, dtype=float).reshape(-1)
+
+    n = Z0.shape[0]
+    if len(node_labels) != n:
+        raise ValueError("node_labels length must match Z shape.")
+
+    if metric.upper() == "A":
+        denom0 = X0.copy()
+        denom1 = X1.copy()
+        denom0[denom0 == 0.0] = np.nan
+        denom1[denom1 == 0.0] = np.nan
+        base = np.nan_to_num(Z0 / denom0[None, :], nan=0.0)
+        final = np.nan_to_num(Z1 / denom1[None, :], nan=0.0)
+    elif metric.upper() == "Z":
+        base = Z0
+        final = Z1
+    else:
+        raise ValueError("metric must be either 'A' or 'Z'.")
+
+    delta = final - base
+    delta_rel = np.divide(delta, base, out=np.zeros_like(delta, dtype=float), where=base != 0.0)
+    keep = np.abs(delta) > float(min_abs_delta)
+
+    i_idx, j_idx = np.where(keep)
+    return pd.DataFrame(
+        {
+            "i_node": i_idx,
+            "j_node": j_idx,
+            "i_label": [node_labels[ii] for ii in i_idx],
+            "j_label": [node_labels[jj] for jj in j_idx],
+            "baseline": base[i_idx, j_idx],
+            "final": final[i_idx, j_idx],
+            "delta": delta[i_idx, j_idx],
+            "delta_rel": delta_rel[i_idx, j_idx],
+        }
+    )
 def top_linkage_changes(
     *,
     node_labels: Sequence[str],

@@ -275,6 +275,15 @@ def main():
             st.plotly_chart(bundle.figures["top_sectors"], use_container_width=True)
 
         with tab_links:
+            heatmap_mode = st.segmented_control(
+                "Heatmap perspective",
+                options=["absolute", "percentage"],
+                default="absolute",
+                key="supply_chain_heatmap_mode",
+            )
+            heatmap_key = f"supply_chain_heatmap_{heatmap_mode}"
+            st.plotly_chart(bundle.figures[heatmap_key], use_container_width=True)
+
             col_l, col_r = st.columns(2)
             if "links_weakened" in bundle.figures:
                 with col_l:
