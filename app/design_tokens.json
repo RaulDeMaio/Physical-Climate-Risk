@@ -9,14 +9,13 @@
         "palettes": {
             "categorical": [
                 "#4400B3",
-                "#6BAD2A",
-                "#00C2FF",
-                "#FF3366",
-                "#7C3AED",
-                "#1F2937"
+                "#FF8DFF",
+                "#D5D5FF",
+                "#83FFFF",
+                "#B9FF69"
             ],
             "sequential": [
-                "#F3E8FF",
+                "#EFE5FF",
                 "#4400B3"
             ]
         }
@@ -26,9 +25,9 @@
         "fallback": "Arial"
     },
     "tables": {
-        "header_bg": "#4400B3",
+        "header_bg": "#2C2C2C",
         "header_text": "#FFFFFF",
-        "row_odd_bg": "#F1F5F9",
+        "row_odd_bg": "#F1F1F1",
         "row_even_bg": "#FFFFFF"
     }
 }
