@@ -13,12 +13,7 @@ setup_paths()
 from app.data import load_core_model_data, load_calibration_data
 from src.io_climate.calibration import shock_scalar
 from io_climate.postprocess import postprocess_results
-from io_climate.viz import (
-    build_dashboard_bundle,
-    plot_supply_chain_heatmap,
-    plot_top_countries,
-    iso2_to_iso3,
-)
+import io_climate.viz as viz
 from app.branding import set_streamlit_branding, apply_oe_branding, load_design_tokens
 from app.education import (
     build_hazard_catalog,
@@ -189,7 +184,7 @@ def main():
                     top_k_links=20,
                 )
 
-                bundle = build_dashboard_bundle(pp)
+                bundle = viz.build_dashboard_bundle(pp)
 
                 # Apply OE Branding with specific color logic
                 for fig_key in bundle.figures:
@@ -204,6 +199,7 @@ def main():
                     )
 
                 st.session_state["bundle"] = bundle
+
                 st.session_state["has_run"] = True
 
             except Exception as e:
@@ -264,7 +260,7 @@ def main():
                     ]
 
                 df_country = bundle.tables["country"].copy()
-                df_country["iso3"] = df_country["country"].map(iso2_to_iso3)
+                df_country["iso3"] = df_country["country"].map(viz.iso2_to_iso3)
 
                 if selected_iso3:
                     df_filtered = df_country[df_country["iso3"].isin(selected_iso3)]
@@ -274,7 +270,7 @@ def main():
                     st.caption("🔍 Showing top impacted countries (global)")
 
                 # Re-generate bar chart figure dynamically based on filter
-                fig_top = plot_top_countries(
+                fig_top = viz.plot_top_countries(
                     df_filtered,
                     metric="loss_abs",
                     top_k=20,
@@ -306,24 +302,37 @@ def main():
                     help="Aggregate linkage deltas to improve readability for dense node-level matrices.",
                 )
 
-            heatmap_fig = plot_supply_chain_heatmap(
+            sector_df = bundle.tables.get("sector", bundle.tables["nodes"])
+            if hasattr(viz, "plot_supply_chain_deviation_bars"):
+                deviation_fig = viz.plot_supply_chain_deviation_bars(
+                    sector_df,
+                    baseline_metric="loss_pct",
+                    ranking_mode="top_bottom",
+                    top_k=20,
+                    title="Sector Deviation vs Scenario Mean (Top/Bottom anomalies)",
+                )
+            else:
+                deviation_fig = viz.plot_top_sectors(
+                    sector_df,
+                    metric="loss_pct",
+                    top_k=20,
+                    title="Top sectors by relative loss (%)",
+                )
+            deviation_fig = apply_oe_branding(deviation_fig, theme_color="primary")
+            st.plotly_chart(deviation_fig, use_container_width=True)
+
+            heatmap_fig = viz.plot_supply_chain_heatmap(
                 bundle.tables.get("links_all"),
                 perspective=heatmap_mode,
                 aggregation=heatmap_aggregation,
             )
             st.plotly_chart(heatmap_fig, use_container_width=True)
 
-            col_l, col_r = st.columns(2)
-            if "links_weakened" in bundle.figures:
-                with col_l:
-                    st.plotly_chart(
-                        bundle.figures["links_weakened"], use_container_width=True
-                    )
-            if "links_strengthened" in bundle.figures:
-                with col_r:
-                    st.plotly_chart(
-                        bundle.figures["links_strengthened"], use_container_width=True
-                    )
+            if "linkage_deviation_combined" in bundle.figures:
+                st.plotly_chart(
+                    bundle.figures["linkage_deviation_combined"],
+                    use_container_width=True,
+                )
 
         with tab_data:
             st.markdown("### Detailed Node Impacts")

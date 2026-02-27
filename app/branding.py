@@ -1,7 +1,5 @@
 import json
 from pathlib import Path
-import plotly.io as pio
-import plotly.graph_objects as go
 import streamlit as st
 
 
@@ -118,6 +116,7 @@ def set_streamlit_branding():
     css = f"""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:ital,wght@0,200..800;1,200..800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:ital,wght@0,200..800;1,200..800&display=swap');
         
         /* Apply to the whole app */
         html, body, [class*="css"], .stMarkdown, .stText, .stButton, .stSelectbox, .stSlider, .stHeader, .stMetric {{
@@ -136,19 +135,46 @@ def set_streamlit_branding():
             --primary-color: {primary};
         }}
         
-        /* Brand Color Button */
+        /* Brand Color Button - Primary Variant */
         .stButton>button {{
             background-color: {primary} !important;
-            color: white !important;
-            border-radius: 8px !important;
+            color: #FFFFFF !important;
+            border: none !important;
+            border-radius: 2px !important;
+            padding: 8px 16px !important;
+            min-height: 48px !important;
             font-family: '{font}', sans-serif !important;
+            font-size: 16px !important;
+            font-weight: 500 !important;
+            box-shadow: none !important;
+            transition: all 0.2s ease-in-out;
+        }}
+        
+        .stButton>button:hover {{
+            background-color: #6E1AFF !important;
+            color: #FFFFFF !important;
+            border: none !important;
+        }}
+
+        .stButton>button:active {{
+            background-color: #5902EE !important;
+            border: none !important;
         }}
         
         /* Metric Styling */
         [data-testid="stMetricValue"] {{
-            font-family: '{font}', sans-serif !important;
-            font-weight: 800 !important;
+            font-family: 'Atkinson Hyperlegible Mono', '{font}', monospace !important;
+            font-weight: 700 !important;
             color: {primary} !important;
+        }}
+        
+        /* Links Hover State Extension */
+        a {{
+            color: #4400B3 !important;
+            text-decoration: underline;
+        }}
+        a:hover {{
+            font-weight: 700 !important;
         }}
     </style>
     """

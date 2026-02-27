@@ -22,10 +22,14 @@ DARK_TABLE_FALLBACK = {
 }
 
 
-def resolve_table_theme(tokens: Mapping[str, object] | None, mode: str = "light") -> dict:
+def resolve_table_theme(
+    tokens: Mapping[str, object] | None, mode: str = "light"
+) -> dict:
     """Resolve table theme tokens with light/dark fallbacks."""
     fallback = DARK_TABLE_FALLBACK if mode == "dark" else LIGHT_TABLE_FALLBACK
-    table_tokens = (tokens or {}).get("tables", {}) if isinstance(tokens, Mapping) else {}
+    table_tokens = (
+        (tokens or {}).get("tables", {}) if isinstance(tokens, Mapping) else {}
+    )
     return {key: table_tokens.get(key, fallback[key]) for key in fallback}
 
 
@@ -42,18 +46,23 @@ def build_global_table_css(theme: Mapping[str, str]) -> str:
     return f"""
     <style>
       [data-testid="stDataFrame"] thead tr th {{
-          background: {theme['header_bg']} !important;
-          color: {theme['header_text']} !important;
-          border: 1px solid {theme['border']} !important;
+          background: {theme.get("header_bg", "#2C2C2C")} !important;
+          color: {theme.get("header_text", "#FFFFFF")} !important;
+          border-bottom: 4px solid #B9FF69 !important;
+          border-left: 0.5px solid #999999 !important;
+          border-right: 0.5px solid #999999 !important;
+          border-top: 0.5px solid #999999 !important;
       }}
       [data-testid="stDataFrame"] tbody tr:nth-child(odd) td {{
-          background: {theme['row_odd_bg']} !important;
+          background: {theme.get("row_odd_bg", "#F1F1F1")} !important;
       }}
       [data-testid="stDataFrame"] tbody tr:nth-child(even) td {{
-          background: {theme['row_even_bg']} !important;
+          background: {theme.get("row_even_bg", "#FFFFFF")} !important;
       }}
       [data-testid="stDataFrame"] tbody td {{
-          border: 1px solid {theme['border']} !important;
+          border-left: 0.5px solid #999999 !important;
+          border-right: 0.5px solid #999999 !important;
+          border-bottom: 0.5px solid #E7E7E7 !important;
       }}
       [data-testid="stDataFrame"] tbody td.key-metric {{
           font-weight: 700 !important;
@@ -82,7 +91,9 @@ def build_branded_styler(
     return styler
 
 
-def apply_table_branding(tokens: Mapping[str, object] | None, mode: str = "light") -> None:
+def apply_table_branding(
+    tokens: Mapping[str, object] | None, mode: str = "light"
+) -> None:
     """Inject global CSS so branded table styles are consistent across views."""
     theme = resolve_table_theme(tokens, mode=mode)
     st.markdown(build_global_table_css(theme), unsafe_allow_html=True)
